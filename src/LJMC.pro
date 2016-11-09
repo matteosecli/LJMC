@@ -3,7 +3,7 @@ CONFIG += console
 CONFIG -= app_bundle
 CONFIG -= qt
 
-LIBS += -fopenmp -larmadillo -llapack -lblas
+LIBS += -larmadillo -llapack -lblas
 
 QMAKE_CXXFLAGS_RELEASE += -DARMA_NO_DEBUG
 
@@ -27,4 +27,4 @@ OTHER_FILES += \
     _lib.so \
     lib.i
 
-QMAKE_CXXFLAGS += -std=c++11 -fopenmp
+QMAKE_CXXFLAGS += -std=c++11

@@ -87,7 +87,6 @@
 #include "System.h"
 #include "Structs.h"
 #include <time.h>
-#include <omp.h>
 #include <vector>
 #include "pBar.h"
 
