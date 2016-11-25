@@ -40,6 +40,7 @@ namespace QMC2
         double density = 0.5; //!< The particle density of the system
         double L = 0.0; //!< The side of a square or cubic box containing the system
         double temp = 5.0; //!< The temperature of the system
+        double potcutoff2 = 0.0; //!< The square of the spatial cutoff for the potential
     };
 }
 

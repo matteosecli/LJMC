@@ -67,7 +67,7 @@
  * an atom instead of an harmonic oscillator (again,
  * just one line to change).
  *
- * The main obecjt structure is thanks to the work of
+ * The main object structure is thanks to the work of
  * Jørgen Høgberget, from whom I've borrowed many lines
  * of code. He's done a great job with his project.
  * You can check his work here:
@@ -205,7 +205,7 @@ void mc_sampling(GeneralParams& gP, VMCparams& vmcParams,
     /* Initialize the V_old matrix */
     mat V_old = zeros<mat>(gP.number_particles,gP.number_particles);
     LJPotMatrix(gP, V_old, r_old);
-    cout << "Initial energy = " << LJPotValue(gP, V_old) << endl;
+    cout << "Initial energy = " << LJPotValue(gP, V_old)+LJPotTail(gP) << endl;
 
     /* Initialization of the energies */
     energy = energy2 = 0; accept =0;
@@ -248,6 +248,7 @@ void metropolis_bf(GeneralParams& gP, VMCparams& vmcParams,
     double BoltzmannBeta = 1.0/gP.temp;
     mat V_old, V_new;
     double PotDiff = 0;
+    double PotTailCorrection = 0;
     int PrintRate = 1000;
     double ProgressIncrement = 100.0*((double) PrintRate)/((double) vmcParams.number_cycles+vmcParams.thermalization);
     pBar progressbar;
@@ -260,6 +261,10 @@ void metropolis_bf(GeneralParams& gP, VMCparams& vmcParams,
     V_new = zeros<mat>(gP.number_particles,gP.number_particles);
     LJPotMatrix(gP, V_old, r_old);
     V_new = V_old;
+
+    /* Calculate the tail correction to the potential,
+     * which is always the same. */
+    PotTailCorrection = LJPotTail(gP);
 
     /* Loop over the Monte Carlo cycles */
     for (int cycles = 1; cycles <= vmcParams.number_cycles+vmcParams.thermalization; cycles++){
@@ -285,7 +290,7 @@ void metropolis_bf(GeneralParams& gP, VMCparams& vmcParams,
         mratio = exp(-PotDiff*BoltzmannBeta);
 
         /* Metropolis test */ //< or <=?
-        if ( ran1(&idum) < mratio ) {
+        if ( (mratio < 1) ? (ran1(&idum) < mratio) : 1 ) {
             for (int  j=0; j < gP.dimension; j++) {
                 r_old(moving_particle,j)=r_new(moving_particle,j);
             }
@@ -296,6 +301,8 @@ void metropolis_bf(GeneralParams& gP, VMCparams& vmcParams,
 
         /* Compute the energy */
         if ( cycles > vmcParams.thermalization ) {
+            /* Add the tail correction to the potential */
+            delta_e += PotTailCorrection;
             ofile << setiosflags(ios::showpoint | ios::uppercase);
             ofile << setprecision(8) << delta_e << endl;
             energy += delta_e;
@@ -334,6 +341,10 @@ void initialize(GeneralParams & gP, VMCparams & vmcParams)
     cout << "Temperature = ";
     cin >> gP.temp;
 
+    /* Set the density */
+    cout << "Density = ";
+    cin >> gP.density;
+
     /* Be sure to deactivate the parallel capabilities */
     gP.num_threads = 1;
 
@@ -349,10 +360,13 @@ void initialize(GeneralParams & gP, VMCparams & vmcParams)
     /* Turn off the variational capabilities */
     vmcParams.max_variations = 0;
 
-    /* Set the density (no user input, fixed for this experiment) */
-    gP.density = 0.5;
-
     /* Set the box length */
     gP.L = pow(((double) gP.number_particles)/gP.density, 1.0/((double) gP.dimension));
+
+    /* Set the square of the cutoff */
+    gP.potcutoff2 = gP.L*gP.L/4.0;
+
+    // DEBUG
+    //cout << gP.potcutoff2 << endl;
 
 }  // END of function initialize

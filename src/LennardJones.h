@@ -11,6 +11,7 @@ using namespace QMC2;
 void LJPotMatrix(GeneralParams &, mat&, const mat&);
 double LJPotValue(GeneralParams &, const mat&);
 double LJDiffValue(GeneralParams &, mat&, const mat&, const int&);
+double LJPotTail(GeneralParams &);
 
 #endif // LENNARDJONES
 
