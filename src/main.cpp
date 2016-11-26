@@ -273,7 +273,7 @@ void metropolis_bf(GeneralParams& gP, VMCparams& vmcParams,
     pBar progressbar;
 
     /* Variables for g(r) */
-    int gRate = 100;
+    int gRate = 10000;
     int NgTrials = 0;
     int NgBins = 200;
     int iBin = 0;
