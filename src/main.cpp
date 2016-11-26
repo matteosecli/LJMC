@@ -114,7 +114,7 @@ void mc_sampling(GeneralParams&, VMCparams&, double&, double&, System&);
 
 /* The Metropolis algo performed in a brute force way */
 void metropolis_bf(GeneralParams&, VMCparams&, System&, mat&, mat&,
-                   double&, double&, int&);
+                   double&, double&, double&, double&, int&);
 
 
 
@@ -177,6 +177,7 @@ void mc_sampling(GeneralParams& gP, VMCparams& vmcParams,
 {
     int accept;
     double energy, energy2;
+    double pressure, pressure2;
     int npartperL;
     double Lspacing;
     mat r_old, r_new;
@@ -210,13 +211,20 @@ void mc_sampling(GeneralParams& gP, VMCparams& vmcParams,
     /* Initialization of the energies */
     energy = energy2 = 0; accept =0;
 
+    /* Initialization of pressures */
+    pressure = pressure2 = 0;
+
     /* Perform Metropolis sampling */
     metropolis_bf(gP, vmcParams, InputSystem, r_old, r_new,
-                  energy, energy2, accept);
+                  energy, energy2, pressure, pressure2, accept);
 
     /* Update the energy average and its square */
     cumulative_e = energy/vmcParams.number_cycles;
     cumulative_e2 = energy2/vmcParams.number_cycles;
+
+    /* Normalize the pressure */
+    pressure = pressure/vmcParams.number_cycles;
+    pressure2 = pressure2/vmcParams.number_cycles;
 
     /* Calculate some optimistic error and the Cv */
     double variance, error, AcceptPercent, Cv;
@@ -226,8 +234,12 @@ void mc_sampling(GeneralParams& gP, VMCparams& vmcParams,
     AcceptPercent = ((double) accept)/((double) vmcParams.number_cycles )*100.0;
     cout << "V = " << setprecision(8) << cumulative_e << " "
          << "+/- " << setprecision(8) << error << "\t"
-         << "Cv = " << setprecision(8) << Cv << "\t"
-         << "Accepted steps = " << setprecision(2) << AcceptPercent << "%" << endl;
+         << "Cv = " << setprecision(8) << Cv << "\t";
+         if (vmcParams.DoPressure) {
+            cout << "P = " << setprecision(8) << pressure << " "
+            << "+/- " << setprecision(8) << sqrt((pressure2-pow(pressure,2))/vmcParams.number_cycles) << endl;
+         }
+         cout << "Accepted steps = " << setprecision(2) << AcceptPercent << "%" << endl;
 
     /* Free memory */
     r_old.reset(); // free memory
@@ -238,17 +250,23 @@ void mc_sampling(GeneralParams& gP, VMCparams& vmcParams,
 /* The Metropolis brute-force algo */
 void metropolis_bf(GeneralParams& gP, VMCparams& vmcParams,
                    System& InputSystem, mat& r_old, mat& r_new,
-                   double& energy, double& energy2, int& accept)
+                   double& energy, double& energy2,
+                   double& pressure, double& pressure2,
+                   int& accept)
 {
     /* Initialize some needed variables */
     int moving_particle;
     long idum = -1;
     double delta_e = 0;
+    double delta_p = 0;
     double mratio = 0;
     double BoltzmannBeta = 1.0/gP.temp;
     mat V_old, V_new;
+    mat W_old, W_new;
     double PotDiff = 0;
     double PotTailCorrection = 0;
+    double VirTailCorrection = 0;
+    double PressExtValue = 0;
     int PrintRate = 1000;
     double ProgressIncrement = 100.0*((double) PrintRate)/((double) vmcParams.number_cycles+vmcParams.thermalization);
     pBar progressbar;
@@ -261,10 +279,21 @@ void metropolis_bf(GeneralParams& gP, VMCparams& vmcParams,
     V_new = zeros<mat>(gP.number_particles,gP.number_particles);
     LJPotMatrix(gP, V_old, r_old);
     V_new = V_old;
+    /* Do the same for the virial W */
+    W_old = zeros<mat>(gP.number_particles,gP.number_particles);
+//    W_new = zeros<mat>(gP.number_particles,gP.number_particles);
+    LJVirMatrix(gP, W_old, r_old);
+//    W_new = W_old;
 
     /* Calculate the tail correction to the potential,
      * which is always the same. */
     PotTailCorrection = LJPotTail(gP);
+    /* Do the same for the virial W */
+    VirTailCorrection = LJVirTail(gP);
+    PressExtValue = gP.density*gP.temp;
+
+    /* Calculate the initial pressure */
+    delta_p = PressExtValue + LJVirValueOverV(gP, W_old) + VirTailCorrection;
 
     /* Loop over the Monte Carlo cycles */
     for (int cycles = 1; cycles <= vmcParams.number_cycles+vmcParams.thermalization; cycles++){
@@ -289,13 +318,20 @@ void metropolis_bf(GeneralParams& gP, VMCparams& vmcParams,
         PotDiff = LJDiffValue(gP, V_new, r_new, moving_particle); // This function modifies V_new into the actual V_new
         mratio = exp(-PotDiff*BoltzmannBeta);
 
-        /* Metropolis test */ //< or <=?
+        /* Metropolis test */
         if ( (mratio < 1) ? (ran1(&idum) < mratio) : 1 ) {
+            /* Update the virial if asked */
+            if (vmcParams.DoPressure) {
+                delta_p = PressExtValue + LJUpdateVirValueOverV(gP, W_old, r_new, moving_particle) + VirTailCorrection;
+            }
+            /* Accept the move */
             for (int  j=0; j < gP.dimension; j++) {
                 r_old(moving_particle,j)=r_new(moving_particle,j);
             }
+            /* Update the energy */
             delta_e += PotDiff;
             V_old = V_new;
+            /* Update the acceptance countings */
             if ( cycles > vmcParams.thermalization ) { accept = accept+1; }
         }
 
@@ -304,7 +340,13 @@ void metropolis_bf(GeneralParams& gP, VMCparams& vmcParams,
             /* Add the tail correction to the potential */
             delta_e += PotTailCorrection;
             ofile << setiosflags(ios::showpoint | ios::uppercase);
-            ofile << setprecision(8) << delta_e << endl;
+            ofile << setprecision(8) << delta_e;
+            if (vmcParams.DoPressure) {
+                ofile << "\t" << setprecision(8) << delta_p;
+                pressure += delta_p;
+                pressure2 += pow(delta_p,2);
+            }
+            ofile << endl;
             energy += delta_e;
             energy2 += pow(delta_e,2);
         }
@@ -332,6 +374,8 @@ void metropolis_bf(GeneralParams& gP, VMCparams& vmcParams,
 /* Initialize the parameters needed for the simulation */
 void initialize(GeneralParams & gP, VMCparams & vmcParams)
 {
+    int press_active_resp = 0;
+
     cout << "Number of particles = ";
     cin >> gP.number_particles;
 
@@ -357,6 +401,10 @@ void initialize(GeneralParams & gP, VMCparams & vmcParams)
     cout << "# Thermalization steps = ";
     cin >> vmcParams.thermalization;
 
+    cout << "Do you want to calculate the pressure? (1-y / 0-n) = ";
+    cin >> press_active_resp;
+    if (press_active_resp != 0) vmcParams.DoPressure = true;
+
     /* Turn off the variational capabilities */
     vmcParams.max_variations = 0;
 
@@ -365,8 +413,5 @@ void initialize(GeneralParams & gP, VMCparams & vmcParams)
 
     /* Set the square of the cutoff */
     gP.potcutoff2 = gP.L*gP.L/4.0;
-
-    // DEBUG
-    //cout << gP.potcutoff2 << endl;
 
 }  // END of function initialize
