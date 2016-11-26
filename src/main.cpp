@@ -80,6 +80,7 @@
 #include <iostream>
 #include <fstream>
 #include <iomanip>
+#include <string>
 #include "lib.h"
 #include "LennardJones.h"
 #include <armadillo>
@@ -97,6 +98,7 @@ using namespace pBarNamespace;
 
 /* Output file as global variable */
 ofstream ofile;
+char *outfilename;
 
 /* The step length and its squared inverse for the second derivative */
 #define h 0.001
@@ -125,7 +127,6 @@ int main(int argc, char* argv[])
     //boost::timer t;
 
     /* Initialize variables */
-    char *outfilename;
     double cumulative_e = 0, cumulative_e2 = 0;
 
     /* Read in output file, abort if there are too few
@@ -262,7 +263,7 @@ void metropolis_bf(GeneralParams& gP, VMCparams& vmcParams,
     double mratio = 0;
     double BoltzmannBeta = 1.0/gP.temp;
     mat V_old, V_new;
-    mat W_old, W_new;
+    mat W_old;
     double PotDiff = 0;
     double PotTailCorrection = 0;
     double VirTailCorrection = 0;
@@ -270,6 +271,15 @@ void metropolis_bf(GeneralParams& gP, VMCparams& vmcParams,
     int PrintRate = 1000;
     double ProgressIncrement = 100.0*((double) PrintRate)/((double) vmcParams.number_cycles+vmcParams.thermalization);
     pBar progressbar;
+
+    /* Variables for g(r) */
+    int gRate = 100;
+    int NgTrials = 0;
+    int NgBins = 200;
+    int iBin = 0;
+    double gBinWidth = gP.L/(2.0*((double)NgBins));
+    double gDistance = 0;
+    vec gr = zeros<vec>(NgBins);
 
     /* Matrices for the potential. Maybe it's a waste of space, but we have
      * plenty of it and I'm lazy. I could optimize for memory by using
@@ -281,9 +291,7 @@ void metropolis_bf(GeneralParams& gP, VMCparams& vmcParams,
     V_new = V_old;
     /* Do the same for the virial W */
     W_old = zeros<mat>(gP.number_particles,gP.number_particles);
-//    W_new = zeros<mat>(gP.number_particles,gP.number_particles);
     LJVirMatrix(gP, W_old, r_old);
-//    W_new = W_old;
 
     /* Calculate the tail correction to the potential,
      * which is always the same. */
@@ -351,6 +359,25 @@ void metropolis_bf(GeneralParams& gP, VMCparams& vmcParams,
             energy2 += pow(delta_e,2);
         }
 
+        /* Calculate g(r) every gRate points */
+        if ( cycles > vmcParams.thermalization && cycles%gRate == 0 && vmcParams.DoGr ) {
+            for ( int i = 0; i < gP.number_particles - 1; i++ ) {
+                for ( int j = i+1; j < gP.number_particles; j++ ) {
+                    gDistance = 0;
+                    for ( int k = 0; k < gP.dimension; k++ ) {
+                        gDistance += pow( (r_new(i,k)-r_new(j,k)-round((r_new(i,k)-r_new(j,k))/gP.L)*gP.L), 2 );
+                    }
+                    if ( gDistance < gP.potcutoff2 ) {
+                        gDistance = sqrt(gDistance);
+                        iBin = floor(gDistance/gBinWidth);
+                        if ( iBin == NgBins ) iBin -= 1;
+                        gr(iBin) += 2;
+                    }
+                }
+            }
+            NgTrials += 1;
+        }
+
         /* Print some nice visual feedback every PrintRate points
          */
         if ( cycles%PrintRate == 0 ) {
@@ -361,6 +388,17 @@ void metropolis_bf(GeneralParams& gP, VMCparams& vmcParams,
         }
 
     }   /* END of loop over MC trials */
+
+    /* Renormalize g(r) and print it */
+    if ( vmcParams.DoGr ) {
+        ofstream grofile;
+        grofile.open("g(r)_-_"+string(outfilename));
+        for ( int i = 0; i < NgBins; i++ ) {
+            gr(i) = 3.0*gr(i)/(4.0*datum::pi*((double)NgTrials)*gP.density*((double)gP.number_particles)*pow(gBinWidth,3.0)*((double)(pow(i+2,3.0)-pow(i+1,3))));
+            grofile << setprecision(8) << gr(i) << endl;
+        }
+        grofile.close();
+    }
 
     /* Print final percentage of the progress bar
      */
@@ -375,6 +413,7 @@ void metropolis_bf(GeneralParams& gP, VMCparams& vmcParams,
 void initialize(GeneralParams & gP, VMCparams & vmcParams)
 {
     int press_active_resp = 0;
+    int gr_active_resp = 0;
 
     cout << "Number of particles = ";
     cin >> gP.number_particles;
@@ -404,6 +443,10 @@ void initialize(GeneralParams & gP, VMCparams & vmcParams)
     cout << "Do you want to calculate the pressure? (1-y / 0-n) = ";
     cin >> press_active_resp;
     if (press_active_resp != 0) vmcParams.DoPressure = true;
+
+    cout << "Do you want to calculate the g(r)? (1-y / 0-n) = ";
+    cin >> gr_active_resp;
+    if (gr_active_resp != 0) vmcParams.DoGr = true;
 
     /* Turn off the variational capabilities */
     vmcParams.max_variations = 0;

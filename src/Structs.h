@@ -16,7 +16,8 @@ namespace QMC2
         double dt = 0.001; //!< Time step
         bool jF_active = false; //!< Disable Jastrow by default.
         bool imp_active = false; //!< Disable importance sampling by default.
-        bool DoPressure = false;
+        bool DoPressure = false; //!< Disable the calculation of the pressure by default
+        bool DoGr = false; //!< Disable the calculation of the correlation function by default
     };
 
     //! Struct used to initialize the varational parameters.

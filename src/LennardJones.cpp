@@ -97,6 +97,8 @@ double LJPotTail(GeneralParams & gP) {
         case (3) :
             return 8.0/3.0*datum::pi*gP.number_particles*gP.density*(1.0/3.0*pow(gP.potcutoff2,-4.5)-pow(gP.potcutoff2,-1.5));;
             break;
+        default :
+            return 0;
     }
 }
 
@@ -187,5 +189,7 @@ double LJVirTail(GeneralParams & gP) {
         case (3) :
             return 16.0/3.0*datum::pi*pow(gP.density,2)*(2.0/3.0*pow(gP.potcutoff2,-4.5)-pow(gP.potcutoff2,-1.5));
             break;
+        default :
+            return 0;
     }
 }
