@@ -18,6 +18,7 @@ namespace QMC2
         bool imp_active = false; //!< Disable importance sampling by default.
         bool DoPressure = false; //!< Disable the calculation of the pressure by default
         bool DoGr = false; //!< Disable the calculation of the correlation function by default
+        bool tailcorr_active = true; //!< Enable tail corrections by fedault
     };
 
     //! Struct used to initialize the varational parameters.

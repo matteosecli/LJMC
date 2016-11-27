@@ -7,11 +7,11 @@ using namespace QMC2;
 void LJPotMatrix(GeneralParams & gP, mat& V, const mat& r) {
     V.zeros();
     int i = 0, j = 0, k = 0;
-    double r_12 = 0;
-    double temp = 0;
+    double r_12 = 0.0;
+    double temp = 0.0;
     for (i = 0; i < gP.number_particles -1; i++) {
         for (j = i+1; j < gP.number_particles; j++) {
-            r_12 = 0;
+            r_12 = 0.0;
             for (k = 0; k < gP.dimension; k++) {
                 r_12 += pow( (r(i,k)-r(j,k)-round((r(i,k)-r(j,k))/gP.L)*gP.L), 2 );
             }
@@ -20,7 +20,7 @@ void LJPotMatrix(GeneralParams & gP, mat& V, const mat& r) {
                 temp = pow(r_12,-3);
                 V(i,j) = 4.0*( pow(temp,2) - temp );
             } else {
-                V(i,j) = 0;
+                V(i,j) = 0.0;
             }
         }
     }
@@ -32,7 +32,7 @@ void LJPotMatrix(GeneralParams & gP, mat& V, const mat& r) {
  */
 double LJPotValue(GeneralParams & gP, const mat& V) {
     int i = 0, j = 0;
-    double V_value = 0;
+    double V_value = 0.0;
     for (i = 0; i < gP.number_particles -1; i++) {
         for (j = i+1; j < gP.number_particles; j++) {
             V_value += V(i,j);
@@ -49,10 +49,10 @@ double LJPotValue(GeneralParams & gP, const mat& V) {
  */
 double LJDiffValue(GeneralParams & gP, mat& V, const mat& r, const int& mov_part) {
     int i = 0, j = 0, k = 0;
-    double V_buffer = 0, DeltaV = 0, r_12 = 0;
-    double temp = 0;
+    double V_buffer = 0.0, DeltaV = 0.0, r_12 = 0.0;
+    double temp = 0.0;
     for (i = 0; i < mov_part; i++) {
-        r_12 = 0;
+        r_12 = 0.0;
         for (k = 0; k < gP.dimension; k++) {
             r_12 += pow( (r(i,k)-r(mov_part,k)-round((r(i,k)-r(mov_part,k))/gP.L)*gP.L), 2 );
         }
@@ -61,13 +61,13 @@ double LJDiffValue(GeneralParams & gP, mat& V, const mat& r, const int& mov_part
             temp = pow(r_12,-3);
             V_buffer = 4.0*( pow(temp,2) - temp );
         } else {
-            V_buffer = 0;
+            V_buffer = 0.0;
         }
         DeltaV += V_buffer - V(i,mov_part);
         V(i,mov_part) = V_buffer;
     }
     for (j = mov_part+1; j < gP.number_particles; j++) {
-        r_12 = 0;
+        r_12 = 0.0;
         for (k = 0; k < gP.dimension; k++) {
             r_12 += pow( (r(j,k)-r(mov_part,k)-round((r(j,k)-r(mov_part,k))/gP.L)*gP.L), 2 );
         }
@@ -76,7 +76,7 @@ double LJDiffValue(GeneralParams & gP, mat& V, const mat& r, const int& mov_part
             temp = pow(r_12,-3);
             V_buffer = 4.0*( pow(temp,2) - temp );
         } else {
-            V_buffer = 0;
+            V_buffer = 0.0;
         }
         DeltaV += V_buffer - V(mov_part,j);
         V(mov_part,j) = V_buffer;
@@ -98,7 +98,7 @@ double LJPotTail(GeneralParams & gP) {
             return 8.0/3.0*datum::pi*gP.number_particles*gP.density*(1.0/3.0*pow(gP.potcutoff2,-4.5)-pow(gP.potcutoff2,-1.5));;
             break;
         default :
-            return 0;
+            return 0.0;
     }
 }
 
@@ -107,11 +107,11 @@ double LJPotTail(GeneralParams & gP) {
 void LJVirMatrix(GeneralParams & gP, mat& W, const mat& r) {
     W.zeros();
     int i = 0, j = 0, k = 0;
-    double r_12 = 0;
-    double temp = 0;
+    double r_12 = 0.0;
+    double temp = 0.0;
     for (i = 0; i < gP.number_particles -1; i++) {
         for (j = i+1; j < gP.number_particles; j++) {
-            r_12 = 0;
+            r_12 = 0.0;
             for (k = 0; k < gP.dimension; k++) {
                 r_12 += pow( (r(i,k)-r(j,k)-round((r(i,k)-r(j,k))/gP.L)*gP.L), 2 );
             }
@@ -120,7 +120,7 @@ void LJVirMatrix(GeneralParams & gP, mat& W, const mat& r) {
                 temp = pow(r_12,-3);
                 W(i,j) = 48.0/3.0*( pow(temp,2) - temp*0.5 );
             } else {
-                W(i,j) = 0;
+                W(i,j) = 0.0;
             }
         }
     }
@@ -131,7 +131,7 @@ void LJVirMatrix(GeneralParams & gP, mat& W, const mat& r) {
  */
 double LJVirValueOverV(GeneralParams & gP, const mat& W) {
     int i = 0, j = 0;
-    double W_value = 0;
+    double W_value = 0.0;
     for (i = 0; i < gP.number_particles -1; i++) {
         for (j = i+1; j < gP.number_particles; j++) {
             W_value += W(i,j);
@@ -142,10 +142,10 @@ double LJVirValueOverV(GeneralParams & gP, const mat& W) {
 
 double LJUpdateVirValueOverV(GeneralParams & gP, mat& W, const mat& r, const int& mov_part) {
     int i = 0, j = 0, k = 0;
-    double W_value = 0, r_12 = 0;
-    double temp = 0;
+    double W_value = 0.0, r_12 = 0.0;
+    double temp = 0.0;
     for (i = 0; i < mov_part; i++) {
-        r_12 = 0;
+        r_12 = 0.0;
         for (k = 0; k < gP.dimension; k++) {
             r_12 += pow( (r(i,k)-r(mov_part,k)-round((r(i,k)-r(mov_part,k))/gP.L)*gP.L), 2 );
         }
@@ -154,11 +154,11 @@ double LJUpdateVirValueOverV(GeneralParams & gP, mat& W, const mat& r, const int
             temp = pow(r_12,-3);
             W(i,mov_part) = 48.0/3.0*( pow(temp,2) - temp*0.5 );
         } else {
-            W(i,mov_part) = 0;
+            W(i,mov_part) = 0.0;
         }
     }
     for (j = mov_part+1; j < gP.number_particles; j++) {
-        r_12 = 0;
+        r_12 = 0.0;
         for (k = 0; k < gP.dimension; k++) {
             r_12 += pow( (r(j,k)-r(mov_part,k)-round((r(j,k)-r(mov_part,k))/gP.L)*gP.L), 2 );
         }
@@ -167,7 +167,7 @@ double LJUpdateVirValueOverV(GeneralParams & gP, mat& W, const mat& r, const int
             temp = pow(r_12,-3);
             W(mov_part,j) = 48.0/3.0*( pow(temp,2) - temp*0.5 );
         } else {
-            W(mov_part,j) = 0;
+            W(mov_part,j) = 0.0;
         }
     }
     for (i = 0; i < gP.number_particles -1; i++) {
@@ -190,6 +190,6 @@ double LJVirTail(GeneralParams & gP) {
             return 16.0/3.0*datum::pi*pow(gP.density,2)*(2.0/3.0*pow(gP.potcutoff2,-4.5)-pow(gP.potcutoff2,-1.5));
             break;
         default :
-            return 0;
+            return 0.0;
     }
 }

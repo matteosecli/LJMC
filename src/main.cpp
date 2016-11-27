@@ -300,8 +300,11 @@ void metropolis_bf(GeneralParams& gP, VMCparams& vmcParams,
     VirTailCorrection = LJVirTail(gP);
     PressExtValue = gP.density*gP.temp;
 
+    /* Calculate the initial energy */
+    delta_e = LJPotValue(gP, V_old) + ( vmcParams.tailcorr_active ? PotTailCorrection : 0.0 );
+
     /* Calculate the initial pressure */
-    delta_p = PressExtValue + LJVirValueOverV(gP, W_old) + VirTailCorrection;
+    delta_p = PressExtValue + LJVirValueOverV(gP, W_old) + ( vmcParams.tailcorr_active ? VirTailCorrection : 0.0 );
 
     /* Loop over the Monte Carlo cycles */
     for (int cycles = 1; cycles <= vmcParams.number_cycles+vmcParams.thermalization; cycles++){
@@ -309,6 +312,7 @@ void metropolis_bf(GeneralParams& gP, VMCparams& vmcParams,
         /* Propose a new position, move only
          * one particle at a time!
          */
+        r_new = r_old;
         moving_particle = round(ran1(&idum)*(gP.number_particles-1));
         for ( int j=0; j < gP.dimension; j++ ) {
             r_new(moving_particle,j) = r_old(moving_particle,j)+vmcParams.step_length*(ran1(&idum)-0.5);
@@ -322,7 +326,8 @@ void metropolis_bf(GeneralParams& gP, VMCparams& vmcParams,
          * acceptance ratio is then calculated.
          */
         V_new = V_old;
-        delta_e = LJPotValue(gP, V_old); // So far V_new is V_old
+        /* SF -- Slightly safer (less error propagation) but slower method. */
+        //delta_e = LJPotValue(gP, V_old); // So far V_new is V_old
         PotDiff = LJDiffValue(gP, V_new, r_new, moving_particle); // This function modifies V_new into the actual V_new
         mratio = exp(-PotDiff*BoltzmannBeta);
 
@@ -345,8 +350,11 @@ void metropolis_bf(GeneralParams& gP, VMCparams& vmcParams,
 
         /* Compute the energy */
         if ( cycles > vmcParams.thermalization ) {
-            /* Add the tail correction to the potential */
-            delta_e += PotTailCorrection;
+            /* Add the tail correction to the potential. Only needed
+             * when using SF (safer but slower method). */
+            //delta_e += PotTailCorrection;
+
+            /* Fill the output file and the cumulants */
             ofile << setiosflags(ios::showpoint | ios::uppercase);
             ofile << setprecision(8) << delta_e;
             if (vmcParams.DoPressure) {
