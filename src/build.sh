@@ -1,5 +1,5 @@
 #g++ -fPIC -c lib.cpp
-g++ -std=c++11 -O2 lib.o main.cpp Potential.cpp System.cpp LennardJones.cpp pBar.cpp -larmadillo -llapack -lblas
+g++ -std=c++11 -O2 lib.o main.cpp Potential.cpp System.cpp LennardJones.cpp pBar.cpp -lconfig++ -larmadillo -llapack -lblas
 
 # For static:
 # -static -static-libgcc -static-libstdc++

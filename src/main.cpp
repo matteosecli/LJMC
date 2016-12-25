@@ -90,9 +90,11 @@
 #include <time.h>
 #include <vector>
 #include "pBar.h"
+#include <libconfig.h++>
 
 using namespace  std;
 using namespace arma;
+using namespace libconfig;
 using namespace QMC2;
 using namespace pBarNamespace;
 
@@ -139,12 +141,25 @@ int main(int argc, char* argv[])
     else{
         outfilename=argv[1];
     }
-    ofile.open(outfilename);
 
     /* Initialize structs */
     struct GeneralParams gP;
     struct VariationalParams vP;
     struct VMCparams vmcParams;
+
+    /* Determine whether the calculations is a fresh one
+     * or a restarted one, and open the output file accordingly
+     */
+    if ( argc == 2 ) {
+        ofile.open(outfilename);
+    } else if ( argc == 3 && string(argv[2]) == "restart" ) {
+        gP.restart = true;
+        ofile.open(outfilename, std::ofstream::in | std::ofstream::app);
+        cout << "Calculation is restarting from where it left..." << endl;
+    } else {
+        cout << "Bad Usage: unknown option '" << argv[2] << "'. ";
+        cout << "Use 'restart' (without quotes) if you want to restart the calculation" << endl;
+    }
 
     /* Initialize system parameters */
     initialize(gP, vmcParams);
@@ -188,17 +203,21 @@ void mc_sampling(GeneralParams& gP, VMCparams& vmcParams,
     r_new = zeros<mat>(gP.number_particles, gP.dimension);
 
     /* Initialize the matrices such that we have no divergencies */
-    npartperL = (int) ceil(pow(gP.number_particles, 1.0/((double) gP.dimension)));
-    Lspacing = gP.L/((double) npartperL);
-    /* Leave the first particle at r=0 */
-    for ( int i = 1; i < gP.number_particles; i++ )
-    {
-        /* x_i */
-        r_old(i,0) = (i%npartperL)*Lspacing;
-        /* y_i and z_i */
-        for ( int k = 1; k < gP.dimension; k++ )
+    if ( gP.restart ) {
+        r_old.load(string(outfilename)+".mat");
+    } else {
+        npartperL = (int) ceil(pow(gP.number_particles, 1.0/((double) gP.dimension)));
+        Lspacing = gP.L/((double) npartperL);
+        /* Leave the first particle at r=0 */
+        for ( int i = 1; i < gP.number_particles; i++ )
         {
-            r_old(i,k) = ((int) i / ((int) pow(npartperL,k)))*Lspacing;
+            /* x_i */
+            r_old(i,0) = (i%npartperL)*Lspacing;
+            /* y_i and z_i */
+            for ( int k = 1; k < gP.dimension; k++ )
+            {
+                r_old(i,k) = ((int) i / ((int) pow(npartperL,k)))*Lspacing;
+            }
         }
     }
 
@@ -207,7 +226,6 @@ void mc_sampling(GeneralParams& gP, VMCparams& vmcParams,
     /* Initialize the V_old matrix */
     mat V_old = zeros<mat>(gP.number_particles,gP.number_particles);
     LJPotMatrix(gP, V_old, r_old);
-    cout << "Initial energy = " << LJPotValue(gP, V_old)+LJPotTail(gP) << endl;
 
     /* Initialization of the energies */
     energy = energy2 = 0; accept =0;
@@ -233,14 +251,17 @@ void mc_sampling(GeneralParams& gP, VMCparams& vmcParams,
     error=sqrt(variance/vmcParams.number_cycles);
     Cv = variance/pow(gP.temp,2);
     AcceptPercent = ((double) accept)/((double) vmcParams.number_cycles )*100.0;
-    cout << "V = " << setprecision(8) << cumulative_e << " "
-         << "+/- " << setprecision(8) << error << "\t"
-         << "Cv = " << setprecision(8) << Cv << "\t";
+    cout << "V/N = " << setprecision(8) << cumulative_e/gP.number_particles << " "
+         << "+/- " << setprecision(8) << error/gP.number_particles << "\t"
+         << "Cv/N = " << setprecision(8) << Cv/gP.number_particles << "\t";
          if (vmcParams.DoPressure) {
             cout << "P = " << setprecision(8) << pressure << " "
             << "+/- " << setprecision(8) << sqrt((pressure2-pow(pressure,2))/vmcParams.number_cycles) << endl;
          }
          cout << "Accepted steps = " << setprecision(2) << AcceptPercent << "%" << endl;
+
+    /* Save the positions of the particles */
+    r_new.save(string(outfilename)+".mat");
 
     /* Free memory */
     r_old.reset(); // free memory
@@ -300,11 +321,28 @@ void metropolis_bf(GeneralParams& gP, VMCparams& vmcParams,
     VirTailCorrection = LJVirTail(gP);
     PressExtValue = gP.density*gP.temp;
 
+    if ( vmcParams.tailcorr_active ) {
+        cout << "Using tail corrections: \t"
+        << "ΔV/N = " << PotTailCorrection/gP.number_particles << "\t"
+        << "and" << "\t"
+        << "ΔP = " << VirTailCorrection << endl;
+    } else {
+        cout << "Not using tail corrections." << endl;
+    }
+
     /* Calculate the initial energy */
     delta_e = LJPotValue(gP, V_old) + ( vmcParams.tailcorr_active ? PotTailCorrection : 0.0 );
 
     /* Calculate the initial pressure */
     delta_p = PressExtValue + LJVirValueOverV(gP, W_old) + ( vmcParams.tailcorr_active ? VirTailCorrection : 0.0 );
+
+    /* Print some initial information */
+    cout << "Initial energy per particle = "
+         << delta_e/gP.number_particles << endl;
+    if ( vmcParams.tailcorr_active ) {
+        cout << "Initial pressure = "
+        << delta_p << endl;
+    }
 
     /* Loop over the Monte Carlo cycles */
     for (int cycles = 1; cycles <= vmcParams.number_cycles+vmcParams.thermalization; cycles++){
@@ -312,7 +350,6 @@ void metropolis_bf(GeneralParams& gP, VMCparams& vmcParams,
         /* Propose a new position, move only
          * one particle at a time!
          */
-        r_new = r_old;
         moving_particle = round(ran1(&idum)*(gP.number_particles-1));
         for ( int j=0; j < gP.dimension; j++ ) {
             r_new(moving_particle,j) = r_old(moving_particle,j)+vmcParams.step_length*(ran1(&idum)-0.5);
@@ -335,7 +372,7 @@ void metropolis_bf(GeneralParams& gP, VMCparams& vmcParams,
         if ( (mratio < 1) ? (ran1(&idum) < mratio) : 1 ) {
             /* Update the virial if asked */
             if (vmcParams.DoPressure) {
-                delta_p = PressExtValue + LJUpdateVirValueOverV(gP, W_old, r_new, moving_particle) + VirTailCorrection;
+                delta_p = PressExtValue + LJUpdateVirValueOverV(gP, W_old, r_new, moving_particle) + ( vmcParams.tailcorr_active ? VirTailCorrection : 0.0 );
             }
             /* Accept the move */
             for (int  j=0; j < gP.dimension; j++) {
@@ -346,6 +383,11 @@ void metropolis_bf(GeneralParams& gP, VMCparams& vmcParams,
             V_old = V_new;
             /* Update the acceptance countings */
             if ( cycles > vmcParams.thermalization ) { accept = accept+1; }
+        } else {
+            /* Reject the move */
+            for (int  j=0; j < gP.dimension; j++) {
+                r_new(moving_particle,j)=r_old(moving_particle,j);
+            }
         }
 
         /* Compute the energy */
@@ -403,7 +445,7 @@ void metropolis_bf(GeneralParams& gP, VMCparams& vmcParams,
         grofile.open("g(r)_-_"+string(outfilename));
         for ( int i = 0; i < NgBins; i++ ) {
             gr(i) = 3.0*gr(i)/(4.0*datum::pi*((double)NgTrials)*gP.density*((double)gP.number_particles)*pow(gBinWidth,3.0)*((double)(pow(i+2,3.0)-pow(i+1,3))));
-            grofile << setprecision(8) << gr(i) << endl;
+            grofile << setprecision(8) << (i+1)*gBinWidth << "\t" << gr(i) << endl;
         }
         grofile.close();
     }
@@ -423,38 +465,98 @@ void initialize(GeneralParams & gP, VMCparams & vmcParams)
     int press_active_resp = 0;
     int gr_active_resp = 0;
 
-    cout << "Number of particles = ";
-    cin >> gP.number_particles;
+    /* Configuration file filename */
+    string cfgoutfilename = string(outfilename) + ".cfg";
 
-    cout << "Dimensionality = ";
-    cin >> gP.dimension;
+    /* Configuration file object */
+    Config conf;
 
-    cout << "Temperature = ";
-    cin >> gP.temp;
+    if ( !gP.restart ) {
+        cout << "Number of particles = ";
+        cin >> gP.number_particles;
 
-    /* Set the density */
-    cout << "Density = ";
-    cin >> gP.density;
+        cout << "Dimensionality = ";
+        cin >> gP.dimension;
+
+        cout << "Temperature = ";
+        cin >> gP.temp;
+
+        /* Set the density */
+        cout << "Density = ";
+        cin >> gP.density;
+
+        cout << "# Monte Carlo steps = ";
+        cin >> vmcParams.number_cycles;
+
+        cout << "# Step length = ";
+        cin >> vmcParams.step_length;
+
+        cout << "# Thermalization steps = ";
+        cin >> vmcParams.thermalization;
+
+        cout << "Do you want to calculate the pressure? (1-y / 0-n) = ";
+        cin >> press_active_resp;
+        if (press_active_resp != 0) vmcParams.DoPressure = true;
+
+        cout << "Do you want to calculate the g(r)? (1-y / 0-n) = ";
+        cin >> gr_active_resp;
+        if (gr_active_resp != 0) vmcParams.DoGr = true;
+
+        /* Build the configuration */
+        Setting &root = conf.getRoot();
+        root.add("number_particles", Setting::TypeInt) = gP.number_particles;
+        root.add("dimension", Setting::TypeInt) = gP.dimension;
+        root.add("temp", Setting::TypeFloat) = gP.temp;
+        root.add("density", Setting::TypeFloat) = gP.density;
+        root.add("number_cycles", Setting::TypeInt) = vmcParams.number_cycles;
+        root.add("step_length", Setting::TypeFloat) = vmcParams.step_length;
+        root.add("DoPressure",Setting::TypeBoolean) = vmcParams.DoPressure;
+
+    } else {
+        cout << "Loading configuration from config file..." << endl;
+
+        /* Open the configuration file */
+        conf.readFile(cfgoutfilename.c_str());
+
+        /* Load previous configuration */
+        int oldMCSteps;
+        gP.number_particles = conf.lookup("number_particles");
+        gP.dimension = conf.lookup("dimension");
+        gP.temp = conf.lookup("temp");
+        gP.density = conf.lookup("density");
+        oldMCSteps = conf.lookup("number_cycles");
+        vmcParams.step_length = conf.lookup("step_length");
+        vmcParams.DoPressure = conf.lookup("DoPressure");
+
+        /* Print info about the current configuration */
+        cout << "You are using the following configuration:" << endl;
+        cout << "Number of particles = " << gP.number_particles << endl;
+        cout << "Dimensionality = " << gP.dimension << endl;
+        cout << "Temperature = " << gP.temp << endl;
+        cout << "Density = " << gP.density << endl;
+        cout << "# Step length = " << vmcParams.step_length << endl;
+        cout << "Calculation of the pressure = " << vmcParams.DoPressure << endl;
+
+        /* Ask for additional MC steps */
+        cout << "You've already done " << oldMCSteps << " Monte Carlo steps." << endl;
+        cout << "How many additional Monte Carlo steps would you like to do?" << endl;
+        cout << "# Additional Monte Carlo steps = ";
+        cin >> vmcParams.number_cycles;
+
+        /* Calculation of g(r) in restart mode is currently unavailable */
+        vmcParams.DoGr = false;
+
+        /* We don't need anymore to thermalize */
+        vmcParams.thermalization = 0;
+
+        /* Build the configuration. No need to rewrite old conf. */
+        Setting &root = conf.getRoot();
+        root["number_cycles"] = vmcParams.number_cycles + oldMCSteps;
+
+    }
 
     /* Be sure to deactivate the parallel capabilities */
     gP.num_threads = 1;
-
-    cout << "# Monte Carlo steps = ";
-    cin >> vmcParams.number_cycles;
-
-    cout << "# Step length = ";
-    cin >> vmcParams.step_length;
-
-    cout << "# Thermalization steps = ";
-    cin >> vmcParams.thermalization;
-
-    cout << "Do you want to calculate the pressure? (1-y / 0-n) = ";
-    cin >> press_active_resp;
-    if (press_active_resp != 0) vmcParams.DoPressure = true;
-
-    cout << "Do you want to calculate the g(r)? (1-y / 0-n) = ";
-    cin >> gr_active_resp;
-    if (gr_active_resp != 0) vmcParams.DoGr = true;
 
     /* Turn off the variational capabilities */
     vmcParams.max_variations = 0;
@@ -464,5 +566,8 @@ void initialize(GeneralParams & gP, VMCparams & vmcParams)
 
     /* Set the square of the cutoff */
     gP.potcutoff2 = gP.L*gP.L/4.0;
+
+    /* Save the configuration */
+    conf.writeFile(cfgoutfilename.c_str());
 
 }  // END of function initialize

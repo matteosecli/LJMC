@@ -40,6 +40,7 @@ namespace QMC2
         seed_type random_seed = -time(NULL); //!< The random number generator's seed.
         double systemConstant = 1;
         int num_threads = 1; //!< The maximum number of threads
+        bool restart = false; //!< Decides if the calculation is restarted or not
         double density = 0.5; //!< The particle density of the system
         double L = 0.0; //!< The side of a square or cubic box containing the system
         double temp = 5.0; //!< The temperature of the system

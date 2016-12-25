@@ -3,7 +3,7 @@ CONFIG += console
 CONFIG -= app_bundle
 CONFIG -= qt
 
-LIBS += -larmadillo -llapack -lblas
+LIBS += -lconfig++ -larmadillo -llapack -lblas
 
 QMAKE_CXXFLAGS_RELEASE += -DARMA_NO_DEBUG
 
