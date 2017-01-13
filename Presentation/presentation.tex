@@ -245,7 +245,7 @@
 
 \begin{frame}[allowframebreaks]{Calculation of the pressure}
 
-	The pressure of the system can be obtained from the \alert{virial theorem}, which is a sort of ``generalized equipartition'' theorem. For a set of generalized coordinates $\{q_k\}$ and their conjugate momenta $\{p_k\}$, the theorem can be stated as (CITE\_SLIDES)
+	The pressure of the system can be obtained from the \alert{virial theorem}, which is a sort of ``generalized equipartition'' theorem. For a set of generalized coordinates $\{q_k\}$ and their conjugate momenta $\{p_k\}$, the theorem can be stated as (see \cite{Galli})
 	\begin{equation}
 		\Braket{p_k\frac{\partial H}{\partial p_k}} = \Braket{q_k\frac{\partial H}{\partial q_k}} = k_BT.
 	\end{equation}
@@ -652,11 +652,11 @@
 
 \section{Isotherms}
 
-\begin{frame}{Preliminaries}
+\begin{frame}[allowframebreaks]{Preliminaries}
 
 	Let's now study the isotherms of the system in the pressure-density plane.
 	
-	In this plane, it is in fact possible to find the points that belong to the \alert{liquid-vapor coexistence curve} in a very simple way.
+	In this plane, it is in fact possible to find the points that belong to the \alert{liquid-vapor coexistence curve}. Beware that this requires the knowledge of the critical pressure, which cannot be determined by standard NVT simulations (more about this later). So, I've used tabulated data for the critical pressure from \cite{Johnson1993} and \cite{Siderius2012} in order to compare my results to the ones found in the literature.
 	
 	First of all, let's put some boundaries to temperature and density that we are gonna use in the simulations.
 	\begin{itemize}
@@ -707,14 +707,18 @@
 \begin{frame}[allowframebreaks]{Remarks}
 
 	\begin{itemize}
-		\item The MBWR (Modified Benedict-Webb-Rubin, from \cite{Nicolas1979}) fit is a 33-parameters fit with a horrible expression.
+		\item The MBWR (Modified Benedict-Webb-Rubin, from \cite{Nicolas1979}) fit is a 33-parameters fit with a \emph{horrible expression}. It is popular because it's relatively simple, having only one non-linear parameter out of 33.
 		\item I couldn't find any low-density solution except for low temperatures. This could be due to
 		\begin{itemize}
 			\item poor quality of the numerical solver I've used to find the $\rho$-roots, that often cannot find multiple roots;
 			\item hard to keep the acceptance around $\SI{40}{\percent}$ for the low-density/high-temperature region;
 			\item shortage of points in the low-density region, where the corresponding pressure range is really small.
 		\end{itemize}
-		\item The agreement between the data from \cite{Johnson1993} and the results of my simulation are pretty good in the high-density region, except for the points towards the critical point. This could be due to the fact that towards the critical temperature, the $P$-$\rho$ curves gets flatter and flatter in the coexistence region. Therefore, the error obtained from using the above procedure is actually much higher than the reported one.
+		\item The agreement between the data from \cite{Johnson1993} and the results of my simulation are pretty good in the high-density region, except for the points towards the critical point. This could be due to the fact that:
+		\begin{itemize}
+			\item Towards the critical temperature, the $P$-$\rho$ curves gets flatter and flatter in the coexistence region. Therefore, the error obtained from using the above procedure is actually much higher than the reported one.
+			\item I've used too few particles in the calculations, 200 against the 864 of \cite{Johnson1993}.
+		\end{itemize}
 		\item As a general thing, it is not a good idea to use these standard NVT simulations to determine the vapor-liquid coexistence curve, as explained in \cite{Frenkel2002}.
 		\begin{itemize}
 			\item In the coexistence region, the pressure is \emph{not constant} as instead one would expect. That's because for small systems as the one studied, the free-energy cost associated to the creation of the liquid-vapor interface is so high that the system prefers not to separate at all.
@@ -725,7 +729,7 @@
 	\begin{figure}
 		\centering
 		\includegraphics[width=0.5\textwidth]{Gibbs_method}
-		%\caption{MBWR fit of the simulation data.}
+		\caption{Gibbs method scheme. From \cite{Frenkel2002}.}
 		\label{fig:Gibbs_method}
 	\end{figure}
 	
@@ -734,7 +738,20 @@
 
 \section{Conclusions}
 
-\begin{frame}{Conclusions}
+\begin{frame}[allowframebreaks]{Conclusions}
+
+	Just a brief summary of what we've done.
+
+	\begin{itemize}
+		\item We've discussed the physical system studied, with a focus on how to translate the problem into something that can be handled by a machine in a ``finite'' way.
+		\item We've discussed the so-called \alert{tail corrections} and we've said a lot about handling the \alert{cutoff radius} in a proper way.
+		\item This was done by keeping an eye on the configuration of the system and by properly choosing the parameters of the simulation in order to get good results within the desired precision without wasting computational resources.
+		\item We've briefly discussed the calculation of the uncertainties, which was done using the \alert{binning technique}.
+		\item We've compared the program written for this assignment with other programs and data, highlighting many common mistakes that one could do when writing this kind of programs.
+		\item In general, the program performs extremely well if compared with trustworthy data.
+		\item We've then produced some data in order to show possible applications. For the isochores, we've discussed two different ways of calculating the \alert{specific heat}, highlighting the advantages of one over the other.
+		\item For the isotherms we've tried to fit the data to a widely used model, in order to compare our results for the liquid-vapor \alert{coexistence curve} with the ones in the literature. We've also briefly discussed why standard NVT simulations -- as this one -- are not a good tool in the calculation of the coexistence properties.
+	\end{itemize}
 
 	\uncover<+->{Hope this was at least a little bit interesting\ldots}
 	
