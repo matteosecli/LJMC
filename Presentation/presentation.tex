@@ -656,11 +656,11 @@
 
 	Let's now study the isotherms of the system in the pressure-density plane.
 	
-	In this plane, it is in fact possible to find the points that belong to the \alert{liquid-vapor coexistence curve}. Beware that this requires the knowledge of the critical pressure, which cannot be determined by standard NVT simulations (more about this later). So, I've used tabulated data for the critical pressure from \cite{Johnson1993} and \cite{Siderius2012} in order to compare my results to the ones found in the literature.
+	In this plane, it is in fact possible to find the points that belong to the \alert{liquid-vapor coexistence curve}. Beware that this requires the knowledge of the saturation pressure, which cannot be determined by standard NVT simulations (more about this later). So, I've used tabulated data for the saturation pressure from \cite{Johnson1993} and \cite{Siderius2012} in order to compare my results to the ones found in the literature.
 	
 	First of all, let's put some boundaries to temperature and density that we are gonna use in the simulations.
 	\begin{itemize}
-		\item From the data all around the literature (e.g. \cite{Johnson1993}), I've found that for the present purposes it's enough to simulate the system for $\rho = 0.05 \div 0.9$ and $0.6 \div 1.5$.
+		\item From the data all around the literature (e.g. \cite{Johnson1993}), I've found that for the present purposes it's enough to simulate the system for $\rho = 0.05 \div 0.9$ and $T = 0.6 \div 1.5$.
 		\item I've chosen to use a cutoff $r_c \geq 3.0$, which means that for the chosen density range it's enough to use $N=200$.
 		\item I've used $10^6$ thermalization steps and $10^7$ production steps.
 	\end{itemize}
