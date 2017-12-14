@@ -95,13 +95,13 @@ In the future I'll try to improve the usability by giving the possibility of cho
 Each run produces three different files: `outputfile`, `outputfile.cfg` and `outputfile.mat`.
 
 - `outputfile` is the most important one. The first column contains the samples of the potential energy, while the second one contains the samples of the pressure (if the calculation of the pressure is required at input time).
-- `outputfile.cfg` contains the informations needed to perfectly reproduce the system studied (e.g. number of paerticles, density, temperature, etc.) when continuing a calculation.
+- `outputfile.cfg` contains the informations needed to perfectly reproduce the system studied (e.g. number of particles, density, temperature, etc.) when continuing a calculation.
 - `outputfile.mat` contains the positions of the particles at the end of the simulation. The file is in the `arma_binary` format (see [http://arma.sourceforge.net/docs.html#save_load_mat](http://arma.sourceforge.net/docs.html#save_load_mat)).
 
 If you also asked for the calculation of the g(r), the program will produce an additional `g(r)_-_outputfile` file. The first column contains the variable `r`, while the second one contains the values of `g(r)`.
 
 
-###Restart a calculation
+### Restart a calculation
 This is actually more of a "*continue the calculation*" feature. It's useful if you realize that you've not produced enough Monte Carlo steps and you want to produce some more, without thermalizing again. The syntax in this case is
 
 	./LJMC outputfile restart
